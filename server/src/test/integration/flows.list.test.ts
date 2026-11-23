@@ -1423,6 +1423,25 @@ describe('GET /flows', () => {
     await fs.rm(appRoot, { recursive: true, force: true });
   });
 
+  test('flow details return ordered top-level labels with type fallback', async () => {
+    const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-flow-details-'));
+    try {
+      await writeRawFlowFile(tmpDir, 'labels', JSON.stringify({
+        steps: [
+          { type: 'llm', label: 'First', agentType: 'coding_agent', identifier: 'main', messages: [{ role: 'user', content: ['hello'] }] },
+          { type: 'startLoop', steps: [{ type: 'llm', label: 'Nested', agentType: 'coding_agent', identifier: 'main', messages: [{ role: 'user', content: ['nested'] }] }] },
+        ],
+      }));
+      await withFlowsDir(tmpDir, async () => {
+        const response = await supertest(buildApp()).get('/flows/labels');
+        assert.equal(response.status, 200);
+        assert.deepEqual(response.body.flow.steps, ['First', 'startLoop']);
+      });
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   test('flow details expose provider-neutral warnings and disabled-state reasons from the shared availability snapshot', async () => {
     const tmpDir = await fs.mkdtemp(
       path.join(process.cwd(), 'tmp-flows-local-'),

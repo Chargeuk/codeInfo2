@@ -3994,3 +3994,87 @@ test('wait wake rearms after a transient conversation-read failure', async () =>
     { registerTmpDirAsRepo: true },
   );
 });
+
+
+test('fresh startStep executes inclusively with original progress, and resume still skips its cursor', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl }) => {
+    const step = (content: string) => ({ ...makeLlmStep(), messages: [{ role: 'user', content: [content] }] });
+    await writeFlowFile({ tmpDir, flowName: 'fresh-start', steps: [step('first'), step('second'), step('third')] });
+    for (const startStep of [undefined, 2]) {
+      const conversationId = randomUUID();
+      const completion = waitForTestCondition(() => {
+        const flow = memoryConversations.get(conversationId)?.flags?.flow as { runLifecycle?: { status?: string } } | undefined;
+        return flow?.runLifecycle?.status === 'ok';
+      }, { description: 'fresh start flow completes' });
+      await startFlowRun({ flowName: 'fresh-start', conversationId, source: 'REST', startStep, chatFactory: () => new MinimalChat() });
+      await completion;
+      await waitForConversationUnlocked(conversationId);
+      const turns = (memoryTurns.get(conversationId) ?? []).filter((turn) => turn.role === 'user');
+      assert.deepEqual(turns.map((turn) => turn.content), startStep ? ['second', 'third'] : ['first', 'second', 'third']);
+      assert.deepEqual(turns.map((turn) => turn.command?.stepIndex), startStep ? [2, 3] : [1, 2, 3]);
+      assert.deepEqual(turns[0]?.command?.stepProgress, [{ position: startStep ?? 1, total: 3 }]);
+      if (startStep === undefined) {
+        const resumed = waitForTestCondition(
+          () => (memoryTurns.get(conversationId) ?? []).filter((turn) => turn.role === 'user').length >= 5,
+          { description: 'resume runs steps after its cursor' },
+        );
+        await startFlowRun({ flowName: 'fresh-start', conversationId, source: 'REST', resumeStepPath: [0], chatFactory: () => new MinimalChat() });
+        await resumed;
+        await waitForConversationUnlocked(conversationId);
+        const resumedTurns = (memoryTurns.get(conversationId) ?? []).filter((turn) => turn.role === 'user');
+        assert.deepEqual(resumedTurns.slice(3).map((turn) => turn.content), ['second', 'third']);
+      }
+    }
+    await supertest(baseUrl).post('/flows/fresh-start/run').send({ startStep: 4 }).expect(400);
+    await assert.rejects(() => startFlowRun({ flowName: 'fresh-start', source: 'REST', startStep: 4 }), (error: { code?: string }) => error.code === 'INVALID_REQUEST');
+    await assert.rejects(() => startFlowRun({ flowName: 'fresh-start', source: 'REST', startStep: 1, resumeStepPath: [] }), (error: { code?: string }) => error.code === 'INVALID_REQUEST');
+  });
+});
+
+test('fresh startStep enters a selected loop and conditional without skipping nested first steps', async () => {
+  await withFlowHarness(async ({ tmpDir, baseUrl }) => {
+    const step = (content: string) => ({ ...makeLlmStep(), messages: [{ role: 'user', content: [content] }] });
+    await writeFlowFile({ tmpDir, flowName: 'fresh-structures', steps: [
+      step('skipped'),
+      { type: 'startLoop', maxIterations: 1, steps: [step('loop first')] },
+      { type: 'if', condition: 'flow-control/decision-yes.py', then: [step('branch first')], else: [step('wrong branch')] },
+    ] });
+    for (const startStep of [2, 3]) {
+      const conversationId = randomUUID();
+      const completion = waitForTestCondition(() => {
+        const flow = memoryConversations.get(conversationId)?.flags?.flow as { runLifecycle?: { status?: string } } | undefined;
+        return flow?.runLifecycle?.status === 'ok';
+      }, { description: 'selected loop and conditional complete' });
+      await supertest(baseUrl)
+        .post('/flows/fresh-structures/run')
+        .send({ conversationId, startStep, working_folder: tmpDir })
+        .expect(202);
+      await completion;
+      await waitForConversationUnlocked(conversationId);
+      const turns = (memoryTurns.get(conversationId) ?? []).filter((turn) => turn.role === 'user');
+      assert.deepEqual(turns.map((turn) => turn.content), startStep === 2 ? ['loop first', 'branch first'] : ['branch first']);
+      assert.deepEqual(turns.map((turn) => turn.command?.stepProgress), startStep === 2 ? [
+        [{ position: 2, total: 3 }, { position: 1, total: 1 }],
+        [{ position: 3, total: 3 }, { position: 1, total: 1 }],
+      ] : [[{ position: 3, total: 3 }, { position: 1, total: 1 }]]);
+    }
+  }, { registerTmpDirAsRepo: true });
+});
+
+
+test('fresh retry ownership distinguishes startStep while treating omission as step one', async () => {
+  await withFlowHarness(async ({ tmpDir }) => {
+    await writeFlowFile({ tmpDir, flowName: 'start-retry', steps: [makeLlmStep(), makeLlmStep()] });
+    const conversationId = randomUUID();
+    const completion = waitForTestCondition(() => {
+      const flow = memoryConversations.get(conversationId)?.flags?.flow as { runLifecycle?: { status?: string } } | undefined;
+      return flow?.runLifecycle?.status === 'ok';
+    }, { description: 'retry ownership flow completes' });
+    const first = await startFlowRun({ flowName: 'start-retry', conversationId, source: 'REST', retryOwnershipId: 'start-retry-id', chatFactory: () => new MinimalChat() });
+    await completion;
+    await waitForConversationUnlocked(conversationId);
+    const replay = await startFlowRun({ flowName: 'start-retry', source: 'REST', retryOwnershipId: 'start-retry-id', startStep: 1 });
+    assert.deepEqual(replay, first);
+    await assert.rejects(() => startFlowRun({ flowName: 'start-retry', source: 'REST', retryOwnershipId: 'start-retry-id', startStep: 2 }), (error: { code?: string }) => error.code === 'INVALID_REQUEST');
+  });
+});

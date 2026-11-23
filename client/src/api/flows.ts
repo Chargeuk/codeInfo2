@@ -30,6 +30,7 @@ export type FlowDetails = {
   description?: string;
   disabled: boolean;
   warnings: FlowWarningDetails[];
+  steps: string[];
   disabledReason?: FlowDisabledReason;
   sourceId?: string;
   sourceLabel?: string;
@@ -258,6 +259,9 @@ export async function getFlowDetails(params: {
         typeof record.description === 'string' ? record.description : undefined,
       disabled: record.disabled,
       warnings: warnings as FlowWarningDetails[],
+      steps: Array.isArray(record.steps) && record.steps.every((step) => typeof step === 'string')
+        ? record.steps
+        : [],
       disabledReason,
       sourceId:
         typeof record.sourceId === 'string' ? record.sourceId : undefined,
@@ -277,6 +281,7 @@ export async function runFlow(params: {
   mode?: 'run' | 'resume';
   working_folder?: string;
   resumeStepPath?: number[];
+  startStep?: number;
   signal?: AbortSignal;
   beforeFetch?: () => void;
 }): Promise<{
@@ -325,6 +330,9 @@ export async function runFlow(params: {
           : {}),
         ...(params.working_folder?.trim()
           ? { working_folder: params.working_folder }
+          : {}),
+        ...((params.mode ?? 'run') === 'run' && typeof params.startStep === 'number'
+          ? { startStep: params.startStep }
           : {}),
         ...(Array.isArray(params.resumeStepPath)
           ? { resumeStepPath: params.resumeStepPath }

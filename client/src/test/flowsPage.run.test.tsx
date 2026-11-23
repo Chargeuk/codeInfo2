@@ -88,6 +88,7 @@ function mockDailyFlowListOrDetailsResponse(
         description: dailyFlow.description,
         disabled: dailyFlow.disabled,
         warnings: [],
+        steps: ['Prepare', 'Execute'],
         sourceId: dailyFlow.sourceId,
         sourceLabel: dailyFlow.sourceLabel,
       },
@@ -354,6 +355,61 @@ function setupFlowsRunHarness(options?: {
   };
 }
 describe('Flows page run/resume controls', () => {
+  it.each([1280, 390])('selects a fresh start step and resets on flow change at width %i', async (width) => {
+    const originalWidth = window.innerWidth;
+    act(() => { window.innerWidth = width; window.dispatchEvent(new Event('resize')); });
+    try {
+      mockFlowsFetch();
+      const fallback = mockFetch.getMockImplementation()!;
+      mockFetch.mockImplementation((url, init) => {
+        const target = String(url);
+        if (target.endsWith('/flows')) return mockJsonResponse({ flows: [
+          { name: 'daily', disabled: false }, { name: 'other', disabled: false },
+        ] });
+        if (target.includes('/flows/daily') && !target.includes('/run')) return mockJsonResponse({
+          flow: { name: 'daily', disabled: false, warnings: [], steps: Array.from({ length: 24 }, (_, i) => `Step ${i + 1}`) },
+        });
+        if (target.includes('/flows/other') && !target.includes('/run')) return mockJsonResponse({
+          flow: { name: 'other', disabled: false, warnings: [], steps: ['First', 'Second'] },
+        });
+        if (target.includes('/flows/daily/run')) return mockJsonResponse({
+          status: 'started', flowName: 'daily', conversationId: 'flow-1',
+          inflightId: 'i1', providerId: 'codex', modelId: 'model',
+        });
+        return fallback(url, init);
+      });
+      render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: ['/flows'] })} />);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: 'Additional options' }));
+      const selector = await screen.findByLabelText('Start step');
+      await waitFor(() => expect(selector).toBeEnabled());
+      expect(selector).toHaveValue('1');
+      expect(screen.queryByText(/Starts at step/)).not.toBeInTheDocument();
+      await user.selectOptions(selector, '24');
+      expect(selector).toHaveValue('24');
+      expect(screen.getByText('Starts at step 24')).toBeVisible();
+      if (width < 600) await user.click(screen.getByRole('button', { name: 'Close' }));
+      else fireEvent.keyDown(screen.getByRole('presentation'), { key: 'Escape' });
+      expect(screen.getByText('Starts at step 24')).toBeVisible();
+      const run = screen.getByTestId('flow-run');
+      await waitFor(() => expect(run).toBeEnabled());
+      await user.click(run);
+      await waitFor(() => {
+        const call = mockFetch.mock.calls.find(([url]) => String(url).includes('/flows/daily/run'));
+        expect(call).toBeDefined();
+        expect(decodeJsonBody(call![1] as RequestInit)).toHaveProperty('startStep', 24);
+      });
+      await user.click(screen.getByTestId('flow-select-trigger'));
+      await user.click(await screen.findByTestId('flow-option-other::local'));
+      await user.click(await screen.findByRole('button', { name: 'Additional options' }));
+      const resetSelector = await screen.findByLabelText('Start step');
+      await waitFor(() => expect(resetSelector).toBeEnabled());
+      expect(resetSelector).toHaveValue('1');
+      expect(screen.queryByText(/Starts at step/)).not.toBeInTheDocument();
+    } finally {
+      act(() => { window.innerWidth = originalWidth; window.dispatchEvent(new Event('resize')); });
+    }
+  });
   it('renders the custom title input', async () => {
     mockFlowsFetch();
     const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
@@ -641,6 +697,12 @@ describe('Flows page run/resume controls', () => {
     await selectFirstConversation();
     const workingFolderInput = await screen.findByTestId('flow-working-folder');
     fireEvent.change(workingFolderInput, { target: { value: '/tmp/work' } });
+    await user.click(screen.getByRole('button', { name: 'Additional options' }));
+    const startStep = await screen.findByLabelText('Start step');
+    await waitFor(() => expect(startStep).toBeEnabled());
+    await user.selectOptions(startStep, '2');
+    expect(screen.queryByText(/Starts at step/)).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('presentation'), { key: 'Escape' });
     const resumeButton = await screen.findByTestId('flow-resume');
     await waitFor(() => expect(resumeButton).toBeEnabled());
     await user.click(resumeButton);
@@ -654,6 +716,7 @@ describe('Flows page run/resume controls', () => {
       const body = decodeJsonBody(init) as Record<string, unknown>;
       expect(body.conversationId).toBe('flow-1');
       expect(body.working_folder).toBe('/tmp/work');
+      expect(body).not.toHaveProperty('startStep');
     });
   });
   it('still starts a fresh run when flow details fail to load but the summary stays enabled', async () => {

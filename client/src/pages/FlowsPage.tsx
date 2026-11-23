@@ -213,6 +213,8 @@ export default function FlowsPage() {
   const [flowDetailsByKey, setFlowDetailsByKey] = useState<
     Record<string, FlowDetails | undefined>
   >({});
+  const [flowDetailsLoading, setFlowDetailsLoading] = useState(false);
+  const [startStep, setStartStep] = useState(1);
   const [flowDetailsError, setFlowDetailsError] = useState<string | null>(null);
   const [flowsLoading, setFlowsLoading] = useState(true);
   const [flowsError, setFlowsError] = useState<string | null>(null);
@@ -862,15 +864,18 @@ export default function FlowsPage() {
   ]);
 
   useEffect(() => {
-    if (!flowInfoOpen || !selectedFlow) return;
+    if ((!flowInfoOpen && !optionsAnchorEl) || !selectedFlow) return;
 
     let cancelled = false;
+    setFlowDetailsLoading(!selectedFlowDetails);
     void loadSelectedFlowDetails()
       .then((result) => {
         if (cancelled || !result) return;
+        setFlowDetailsLoading(false);
       })
       .catch((error) => {
         if (cancelled) return;
+        setFlowDetailsLoading(false);
         setFlowDetailsError(
           (error as Error).message ?? 'Failed to load flow details.',
         );
@@ -879,7 +884,24 @@ export default function FlowsPage() {
     return () => {
       cancelled = true;
     };
-  }, [flowInfoOpen, loadSelectedFlowDetails, selectedFlow]);
+  }, [
+    flowInfoOpen,
+    optionsAnchorEl,
+    loadSelectedFlowDetails,
+    selectedFlow,
+    selectedFlowDetails,
+  ]);
+
+  useEffect(() => {
+    setStartStep(1);
+    setFlowDetailsError(null);
+  }, [selectedFlowKey]);
+
+  useEffect(() => {
+    if (startStep > 1 && startStep > (selectedFlowDetails?.steps.length ?? 0)) {
+      setStartStep(1);
+    }
+  }, [selectedFlowDetails, startStep]);
 
   useEffect(() => {
     if (persistenceUnavailable) return;
@@ -1597,6 +1619,10 @@ export default function FlowsPage() {
           mode,
           working_folder: workingFolder.trim() || undefined,
           resumeStepPath: mode === 'resume' ? resumeStepPath : undefined,
+          startStep:
+            mode === 'run' && startStep > 1 && startStep <= (details?.steps.length ?? 0)
+              ? startStep
+              : undefined,
           beforeFetch: () => {
             preparationsRef.current.delete(preparation);
             if (preparation.cancelled)
@@ -1727,6 +1753,7 @@ export default function FlowsPage() {
       selectedFlow,
       selectedFlowDetails,
       selectedFlowName,
+      startStep,
       setConversation,
       setSuppressAutoSelect,
       subscribeConversation,
@@ -2256,25 +2283,51 @@ export default function FlowsPage() {
   );
 
   const optionsContent = (
-    <FormControlLabel
-      label="Show descendant messages"
-      control={
-        <Switch
-          checked={showDescendants}
-          onChange={(_, checked) => {
-            setShowDescendants(checked);
-            try {
-              window.localStorage.setItem(
-                'flows.showDescendantMessages',
-                String(checked),
-              );
-            } catch {
-              /* Display preference still applies for this visit. */
-            }
-          }}
-        />
-      }
-    />
+    <Stack spacing={1} sx={{ minWidth: 240 }}>
+      <FormControlLabel
+        label="Show descendant messages"
+        control={
+          <Switch
+            checked={showDescendants}
+            onChange={(_, checked) => {
+              setShowDescendants(checked);
+              try {
+                window.localStorage.setItem(
+                  'flows.showDescendantMessages',
+                  String(checked),
+                );
+              } catch {
+                /* Display preference still applies for this visit. */
+              }
+            }}
+          />
+        }
+      />
+      <TextField
+        select
+        label="Start step"
+        value={selectedFlowDetails?.steps.length ? startStep : 1}
+        onChange={(event) => setStartStep(Number(event.target.value))}
+        disabled={!selectedFlowDetails?.steps.length || flowDetailsLoading}
+        SelectProps={{ native: true }}
+        helperText={
+          flowDetailsLoading
+            ? 'Loading flow steps…'
+            : flowDetailsError ??
+              (!selectedFlowDetails?.steps.length ? 'Flow steps unavailable' : undefined)
+        }
+      >
+        {selectedFlowDetails?.steps.length ? (
+          selectedFlowDetails.steps.map((label, index) => (
+            <option key={index} value={index + 1}>
+              {`${index + 1}. ${label}`}
+            </option>
+          ))
+        ) : (
+          <option value={1}>Step 1</option>
+        )}
+      </TextField>
+    </Stack>
   );
 
   const footerRow = (
@@ -2347,15 +2400,22 @@ export default function FlowsPage() {
         ariaHaspopup={titleLockedToConversation ? undefined : 'dialog'}
         ariaExpanded={Boolean(titleAnchorEl)}
       />
-      <ComposerFooterButton
-        icon={<TuneRoundedIcon fontSize="small" />}
-        label="Options"
-        iconOnly
-        ariaLabel="Additional options"
-        selected={Boolean(optionsAnchorEl)}
-        onClick={(event) => setOptionsAnchorEl(event.currentTarget)}
-        data-testid="flow-options"
-      />
+      <Stack alignItems="center" sx={{ flexShrink: 0 }}>
+        <ComposerFooterButton
+          icon={<TuneRoundedIcon fontSize="small" />}
+          label="Options"
+          iconOnly
+          ariaLabel="Additional options"
+          selected={Boolean(optionsAnchorEl)}
+          onClick={(event) => setOptionsAnchorEl(event.currentTarget)}
+          data-testid="flow-options"
+        />
+        {startStep > 1 && !resumeStepPath && (
+          <Typography variant="caption" sx={{ fontSize: '0.65rem', whiteSpace: 'nowrap' }}>
+            {`Starts at step ${startStep}`}
+          </Typography>
+        )}
+      </Stack>
     </CommonComposerFooter>
   );
 

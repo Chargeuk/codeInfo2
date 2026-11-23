@@ -43,6 +43,7 @@ import {
 export type FlowSummary = {
   name: string;
   description: string;
+  steps: string[];
   disabled: boolean;
   error?: string;
   warnings?: string[];
@@ -700,6 +701,7 @@ const buildSummary = (params: {
     const base: FlowSummary = {
       name: params.name,
       description: INVALID_DESCRIPTION,
+      steps: [],
       disabled: true,
       error: params.error ?? INVALID_DESCRIPTION,
       ...(params.warnings ? { warnings: params.warnings } : {}),
@@ -717,6 +719,7 @@ const buildSummary = (params: {
   const base: FlowSummary = {
     name: params.name,
     description: params.parsed.flow.description ?? '',
+    steps: params.parsed.flow.steps.map((step) => step.label ?? step.type),
     disabled: Boolean(params.error),
     ...(params.error ? { error: params.error } : {}),
     ...(params.warnings ? { warnings: params.warnings } : {}),

@@ -23,6 +23,7 @@ type FlowRunBody = {
   sourceId?: unknown;
   working_folder?: unknown;
   resumeStepPath?: unknown;
+  startStep?: unknown;
   customTitle?: unknown;
 };
 
@@ -55,6 +56,7 @@ const validateBody = (
   sourceId?: string;
   working_folder?: string;
   resumeStepPath?: number[];
+  startStep?: number;
   customTitle?: string;
 } => {
   const candidate = (body ?? {}) as FlowRunBody;
@@ -77,6 +79,15 @@ const validateBody = (
     candidate.working_folder,
     'working_folder',
   );
+
+  const startStep = candidate.startStep;
+  if (startStep !== undefined &&
+      (typeof startStep !== 'number' || !Number.isInteger(startStep) || startStep < 1)) {
+    throw new Error('startStep must be a positive integer');
+  }
+  if (startStep !== undefined && candidate.resumeStepPath != null) {
+    throw new Error('startStep cannot be combined with resumeStepPath');
+  }
 
   const rawResumeStepPath = candidate.resumeStepPath;
   if (rawResumeStepPath !== undefined && rawResumeStepPath !== null) {
@@ -117,6 +128,7 @@ const validateBody = (
     sourceId,
     working_folder,
     resumeStepPath,
+    startStep,
     customTitle,
   };
 };
@@ -203,6 +215,7 @@ export function createFlowsRunRouter(overrides: Partial<Deps> = {}) {
         sourceId?: string;
         working_folder?: string;
         resumeStepPath?: number[];
+        startStep?: number;
         customTitle?: string;
       };
       try {
@@ -233,6 +246,7 @@ export function createFlowsRunRouter(overrides: Partial<Deps> = {}) {
           sourceId: parsedBody.sourceId,
           working_folder: parsedBody.working_folder,
           resumeStepPath: parsedBody.resumeStepPath,
+          ...(parsedBody.startStep !== undefined ? { startStep: parsedBody.startStep } : {}),
           customTitle: parsedBody.customTitle,
           source: 'REST',
         });

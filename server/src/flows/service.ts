@@ -403,6 +403,7 @@ type FreshRunRetryOwnershipLaunch = {
   workingFolder?: string;
   customTitle?: string;
   inputHash?: string;
+  startStep?: number;
 };
 
 type ScheduledWaitHandle = {
@@ -472,6 +473,7 @@ const normalizeFreshRunRetryOwnershipLaunch = (params: {
   working_folder?: string;
   customTitle?: string;
   inputHash?: string;
+  startStep?: number;
 }): FreshRunRetryOwnershipLaunch => ({
   flowName: params.flowName.trim(),
   source: params.source,
@@ -480,6 +482,7 @@ const normalizeFreshRunRetryOwnershipLaunch = (params: {
   workingFolder: params.working_folder?.trim() || undefined,
   customTitle: params.customTitle?.trim() || undefined,
   inputHash: params.inputHash?.trim() || undefined,
+  ...(params.startStep && params.startStep !== 1 ? { startStep: params.startStep } : {}),
 });
 
 const makeFreshRunRetryOwnershipLaunchSignature = (
@@ -6247,6 +6250,7 @@ async function runFlowUnlocked(params: {
   resumeState?: FlowResumeState | null;
   stepProgressPrefix?: import('../mongo/turn.js').FlowStepProgress;
   resumeStepPath?: number[];
+  startStep?: number;
   customTitle?: string;
   runToken: string;
   input?: FlowJsonObject;
@@ -11843,6 +11847,9 @@ async function runFlowUnlocked(params: {
     };
 
     for (const [index, step] of steps.entries()) {
+      if (stepPath.length === 0 && index < (params.startStep ?? 1) - 1) {
+        continue;
+      }
       const indexForExpectedNextStep = index + 1;
       if (
         resumePathRemaining &&
@@ -13009,6 +13016,13 @@ export async function startFlowRun(
   params: FlowRunStartParams & { nativeChild?: true },
 ): Promise<FlowRunStartResult> {
   const flowName = params.flowName.trim();
+  if (params.startStep !== undefined &&
+      (!Number.isInteger(params.startStep) || params.startStep < 1)) {
+    throw toFlowRunError('INVALID_REQUEST', 'startStep must be a positive integer');
+  }
+  if (params.startStep !== undefined && params.resumeStepPath !== undefined) {
+    throw toFlowRunError('INVALID_REQUEST', 'startStep cannot be combined with resumeStepPath');
+  }
   resolveFlowFilePath(flowName, '.');
   let requestedInput: FlowJsonObject | undefined;
   try {
@@ -13075,6 +13089,7 @@ export async function startFlowRun(
     working_folder: params.working_folder,
     customTitle: params.customTitle,
     inputHash: requestedInputHash,
+    startStep: params.startStep,
   });
   if (resumeStepPath && !requestedConversationId) {
     throw toFlowRunError(
@@ -13252,6 +13267,9 @@ export async function startFlowRun(
     flow = await loadFlowFile({ flowName, flowsRoot, sourceId });
     if (!flow.steps.length)
       throw toFlowRunError('NO_STEPS', 'Flow has no steps');
+    if (params.startStep !== undefined && params.startStep > flow.steps.length) {
+      throw toFlowRunError('INVALID_REQUEST', 'startStep out of range');
+    }
 
     appendFlowRuntimeDiagnostic('flows.test.start.flow_loaded', {
       flowName,
@@ -13799,6 +13817,7 @@ export async function startFlowRun(
         stepProgressPrefix:
           resumeState?.stepProgressPrefix ?? params.stepProgressPrefix,
         resumeStepPath: effectiveResumeStepPath,
+        startStep: params.startStep,
         customTitle: params.customTitle,
         runToken,
         input: effectiveFlowInput,

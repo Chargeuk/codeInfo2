@@ -68,6 +68,7 @@ describe('Flows API helpers', () => {
           name: 'daily',
           description: 'Daily flow',
           disabled: true,
+          steps: ['Prepare', 'Execute'],
           warnings: [
             {
               code: 'provider_unavailable',
@@ -104,6 +105,7 @@ describe('Flows API helpers', () => {
         name: 'daily',
         description: 'Daily flow',
         disabled: true,
+        steps: ['Prepare', 'Execute'],
         warnings: [
           {
             code: 'provider_unavailable',
@@ -172,6 +174,7 @@ describe('Flows API helpers', () => {
         description: 'Repo A flow',
         disabled: true,
         warnings: [],
+        steps: [],
         disabledReason: undefined,
         sourceId: '/data/repo-a',
         sourceLabel: 'Repo A',
@@ -231,6 +234,16 @@ describe('Flows API helpers', () => {
       modelId: 'gpt-6.1-sol',
       warnings: ['Primary provider unavailable, fell back to lmstudio.'],
     });
+  });
+  it('sends a start step for fresh runs and excludes it from resumes', async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({
+      status: 'started', flowName: 'daily', conversationId: 'c1',
+      inflightId: 'i1', providerId: 'codex', modelId: 'model',
+    }));
+    await runFlow({ flowName: 'daily', mode: 'run', startStep: 2 });
+    await runFlow({ flowName: 'daily', mode: 'resume', startStep: 2, resumeStepPath: [3] });
+    expect(decodeJsonBody(mockFetch.mock.calls[0][1] as RequestInit)).toEqual({ startStep: 2 });
+    expect(decodeJsonBody(mockFetch.mock.calls[1][1] as RequestInit)).toEqual({ resumeStepPath: [3] });
   });
   it('surfaces structured errors for runFlow', async () => {
     mockFetch.mockResolvedValue(

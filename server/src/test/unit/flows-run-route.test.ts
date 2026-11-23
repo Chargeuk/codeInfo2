@@ -171,3 +171,23 @@ test('flow stop rejects missing and inactive flow conversations', async () => {
     cleanupActiveConversation(inactiveConversationId);
   }
 });
+
+
+test('flow run validates startStep and rejects a resume combination', async () => {
+  const received: Array<number | undefined> = [];
+  const app = express();
+  app.use(createFlowsRunRouter({
+    startFlowRun: async (params) => {
+      received.push(params.startStep);
+      return { flowName: params.flowName, conversationId: 'new', inflightId: 'run', providerId: 'codex', modelId: 'model' };
+    },
+  }));
+  for (const startStep of [null, '2', 0, -1, 1.5, true]) {
+    await supertest(app).post('/flows/example/run').send({ startStep }).expect(400);
+  }
+  await supertest(app).post('/flows/example/run')
+    .send({ conversationId: 'old', startStep: 1, resumeStepPath: [] }).expect(400);
+  await supertest(app).post('/flows/example/run').send({ startStep: 2 }).expect(202);
+  await supertest(app).post('/flows/example/run').send({}).expect(202);
+  assert.deepEqual(received, [2, undefined]);
+});

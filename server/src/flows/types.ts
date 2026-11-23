@@ -47,6 +47,7 @@ export type FlowRunStartParams = {
   working_folder?: string;
   input?: FlowJsonObject;
   resumeStepPath?: number[];
+  startStep?: number;
   customTitle?: string;
   stepProgressPrefix?: import('../mongo/turn.js').FlowStepProgress;
   parentConversationId?: string;

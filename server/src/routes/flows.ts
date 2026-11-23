@@ -61,6 +61,7 @@ export function createFlowsRouter(
           flow: {
             name: flow.name,
             description: flow.description,
+            steps: flow.steps,
             disabled: flow.disabled,
             warnings: flow.warningDetails ?? [],
             ...(flow.disabledReason

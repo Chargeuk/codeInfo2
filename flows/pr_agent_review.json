@@ -12,6 +12,7 @@
     {
       "type": "startLoop",
       "label": "Observe Requested Remote Agent Reviewers",
+      "maxIterations": 12,
       "steps": [
         {
           "type": "llm",
@@ -24,9 +25,9 @@
         {
           "type": "break",
           "label": "Stop Polling Only For Accounted Terminal Or Unavailable Coverage",
-          "agentType": "loop_control_agent",
-          "identifier": "pr_poll_controller",
-          "question": "Read this scheduler-assigned review job input and latest observation evidence for the exact pinned candidate. Return exact JSON only: {\"answer\":\"yes\"} or {\"answer\":\"no\"}. A reviewer wait ends on evidenced success, refusal, quota exhaustion or failure, or honest unavailable coverage when observation cannot be established. One failed repository-provided access route makes that route unavailable; do not require sustained failure or repeat failed queries. Continue accessible channels and observe each genuinely active sibling independently. Answer no only while at least one reviewer has observable pending or running work that can still be observed, or a supported next ambiguous-delivery reconciliation observation remains available. Unknown or missing evidence alone is not active work and must not cause an indefinite wait; record partial or unavailable coverage when active work cannot be established. For an ambiguous-delivery launch with an accessible observation route, make one supported reconciliation/readback attempt when delivery, acceptance or acknowledgement remains unconfirmed; if it cannot resolve the launch, record unavailable coverage. Inspect attributable request/trigger/comment/check/review evidence for the exact candidate/reviewer; empty reviewRequests alone is not proof of delivery. Once delivery, acceptance, acknowledgement or pending/running is confirmed, that ambiguous-delivery exception does not apply. If observation subsequently becomes unavailable, report unavailable coverage rather than waiting on unknown status. Never retry or duplicate the review request. An unavailable checks route does not prevent collecting accessible review evidence or waiting for observable active siblings; evidenced terminal outcomes remain accounted for independently. The preceding observation must explain each pending item and its observable evidence. Preserve unsuccessful and unavailable coverage alongside useful sibling results; never claim unavailable coverage is a clean review. Do not mutate GitHub or files.",
+          "agentType": "planning_agent",
+          "identifier": "pr_reviewer",
+          "question": "Using your latest reviewer-status observation for the pinned candidate, answer {\"answer\":\"no\"} if at least one requested reviewer is observably pending or running and can still be observed. Otherwise answer {\"answer\":\"yes\"}. Do not treat an unavailable, failed or incomplete review as a successful review.",
           "breakOn": "yes",
           "breakOnFailure": true,
           "continueOnFailure": true,

@@ -1150,6 +1150,90 @@ test('flow loops until break answer matches breakOn', async () => {
   );
 });
 
+test('PR reviewer polling reaches collection at the cap with pending coverage incomplete', async () => {
+  let observations = 0;
+  let decisions = 0;
+  const collectionPrompts: string[] = [];
+  await withFlowServer(
+    (message) => {
+      if (message.includes('PENDING_REVIEWER_OBSERVATION')) {
+        observations += 1;
+        return 'Reviewer is pending for the pinned candidate.';
+      }
+      if (message.includes('Using your latest reviewer-status observation')) {
+        decisions += 1;
+        return JSON.stringify({ answer: 'no' });
+      }
+      if (message.includes('# Collect pinned PR review evidence')) {
+        collectionPrompts.push(message);
+        return 'Reviewer coverage: incomplete (still pending).';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const flow = JSON.parse(
+        await fs.readFile(path.join(repoRoot, 'flows/pr_agent_review.json'), 'utf8'),
+      );
+      const loop = flow.steps.find((step: { type: string }) => step.type === 'startLoop');
+      const observation = loop.steps.find((step: { type: string }) => step.type === 'llm');
+      const collection = flow.steps.find(
+        (step: { markdownFile?: string }) => step.markdownFile === 'collect_pr_agent_review.md',
+      );
+      const collectionPrompt = await fs.readFile(
+        path.join(repoRoot, 'codeinfo_markdown/collect_pr_agent_review.md'),
+        'utf8',
+      );
+      delete observation.markdownFile;
+      observation.messages = [{ role: 'user', content: ['PENDING_REVIEWER_OBSERVATION'] }];
+      delete collection.markdownFile;
+      collection.messages = [{ role: 'user', content: [collectionPrompt] }];
+      // Preserve the checked-in loop and decision, but avoid real five-minute waits.
+      loop.steps = loop.steps.filter((step: { type: string }) => step.type !== 'wait');
+      flow.steps = [loop, collection];
+      await fs.writeFile(path.join(tmpDir, 'pr-poll-cap.json'), JSON.stringify(flow));
+
+      const conversationId = 'pr-poll-cap-conv';
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+      try {
+        await supertest(baseUrl)
+          .post('/flows/pr-poll-cap/run')
+          .send({ conversationId })
+          .expect(202);
+        await waitForTestCondition(
+          async () => {
+            const response = await supertest(baseUrl)
+              .get(`/flows/runs/${conversationId}`)
+              .expect(200);
+            return response.body.terminal === true;
+          },
+          {
+            timeoutMs: 35000,
+            description: 'PR reviewer polling flow to become terminal',
+          },
+        );
+        const status = await supertest(baseUrl)
+          .get(`/flows/runs/${conversationId}`)
+          .expect(200);
+        assert.equal(status.body.status, 'ok', JSON.stringify(status.body));
+        assert.equal(observations, 12);
+        assert.equal(decisions, 12);
+        assert.equal(collectionPrompts.length, 1);
+        assert.ok(collectionPrompts[0].includes(
+          'If polling ends while a requested reviewer is still pending or running, record that reviewer’s coverage as incomplete; do not claim the review passed.',
+        ));
+        const turns = memoryTurns.get(conversationId) ?? [];
+        assert.ok(turns.some((turn) => turn.role === 'assistant' &&
+          turn.content.includes('Reviewer coverage: incomplete (still pending).')));
+      } finally {
+        await cleanupConversationRuntime(
+          conversationId,
+          ...getAgentConversationIds(conversationId, ['planning_agent:pr_reviewer']),
+        );
+      }
+    },
+  );
+});
+
 test('github review complete corpus scratch replacement stays authoritative before classification', async () => {
   const repoRoot = await createGitHubReviewRepoFixture();
   try {

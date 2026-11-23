@@ -125,8 +125,14 @@ class LocalReviewFlowTests(unittest.TestCase):
         repair_text = (ROOT / "codeinfo_markdown" / coordinator["markdownFile"]).read_text()
         for phrase in ("automated", "coding_agent", "automated_testing_agent", "focused"):
             self.assertIn(phrase, repair_text)
-        self.assertIn("commit_attempt_push.md", json.dumps(publish))
+        self.assertEqual(publish["markdownFile"], "review_batch_commit_attempt_push.md")
         self.assertTrue(publish["continueOnFailure"])
+        publication_text = (ROOT / "codeinfo_markdown" / publish["markdownFile"]).read_text()
+        for phrase in ("commit_attempt_push.md", "current iteration repair evidence",
+                       "secondary assigned targets", "each distinct repository",
+                       "continue attempting the other repositories"):
+            self.assertIn(phrase, publication_text)
+        self.assertIn("actually changed in the current iteration", repair_text)
         self.assertEqual(reingest["target"], "plan_scope")
         self.assertTrue(stop["breakOnFailure"])
         outcome_text = (ROOT / "codeinfo_markdown" / outcome["markdownFile"]).read_text()

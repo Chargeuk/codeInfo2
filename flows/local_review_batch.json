@@ -83,7 +83,7 @@
               "agentType": "planning_agent_lite",
               "identifier": "commit_attempt_push",
               "continueOnFailure": true,
-              "markdownFile": "commit_attempt_push.md"
+              "markdownFile": "review_batch_commit_attempt_push.md"
             },
             {
               "type": "reingest",

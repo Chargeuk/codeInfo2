@@ -37,6 +37,7 @@ import {
   __setFlowServiceDepsForTests,
 } from '../../flows/service.js';
 import { startFlowRun } from '../../flows/service.js';
+import { runReingestRepository } from '../../ingest/reingestService.js';
 import { closeAll as closeLmStudioClients } from '../../lmstudio/clientPool.js';
 import type { ListReposResult, RepoEntry } from '../../lmstudio/toolService.js';
 import { query, resetStore } from '../../logStore.js';
@@ -2428,6 +2429,172 @@ test('flow-owned commands can execute reingest items', async () => {
   );
 });
 
+test('native reingest records external failures and continues through subsequent steps', async () => {
+  const repos: RepoEntry[] = [];
+  const calls: string[] = [];
+  const sourceIds = [
+    'relative-path',
+    '/unknown-repository',
+    '/queue-unavailable',
+    '/throws',
+    '/index-error',
+    '/index-cancelled',
+    '/after-failures',
+  ];
+  const conversationId = 'flow-native-reingest-best-effort';
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const flowName = 'native-reingest-best-effort';
+      const sourceRoot = path.join(tmpDir, flowName);
+      repos.push(buildRepoEntry({ containerPath: sourceRoot }));
+      for (const sourceId of sourceIds.slice(2)) {
+        repos.push(buildRepoEntry({ containerPath: sourceId }));
+      }
+      await writeFlowFile({
+        repoRoot: sourceRoot,
+        flowName,
+        steps: sourceIds.map((sourceId) => ({ type: 'reingest', sourceId })),
+      });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+      await supertest(baseUrl)
+        .post(`/flows/${flowName}/run`)
+        .send({ conversationId, sourceId: sourceRoot })
+        .expect(202);
+      const turns = await waitForTurns(conversationId, (items) =>
+        items.some((turn) => turn.content.includes('/after-failures')) &&
+        items.filter((turn) => turn.role === 'assistant').length === sourceIds.length,
+      );
+      await waitForRuntimeCleanup(conversationId);
+      assert.deepEqual(calls, sourceIds);
+      const failures = turns.filter((turn) => turn.role === 'assistant' && turn.status === 'failed');
+      assert.equal(failures.length, 4);
+      assert.match(failures[0]?.content ?? '', /absolute normalized container path/i);
+      assert.match(failures[1]?.content ?? '', /existing ingested repository root/i);
+      assert.match(failures[2]?.content ?? '', /queue unavailable for test/i);
+      assert.match(failures[3]?.content ?? '', /external indexing exception/i);
+      const outcomes = turns.flatMap((turn) => {
+        const calls = (turn.toolCalls as { calls?: Array<{ result?: { status?: string; outcome?: string; errorCode?: string | null } }> } | null)?.calls;
+        return calls?.map((call) => call.result) ?? [];
+      });
+      assert.deepEqual(outcomes.map((outcome) => [outcome?.status, outcome?.outcome]), [
+        ['error', 'failed'],
+        ['cancelled', 'failed'],
+        ['completed', 'reingested'],
+      ]);
+      assert.equal(outcomes[0]?.errorCode, 'INDEX_FAILED');
+      const flow = memoryConversations.get(conversationId)?.flags?.flow as
+        | { stepPath?: number[]; runLifecycle?: { status?: string } }
+        | undefined;
+      assert.deepEqual(flow?.stepPath, [6]);
+      assert.equal(flow?.runLifecycle?.status, 'ok');
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
+      flowServiceDeps: {
+        runReingestRepository: async ({ sourceId }) => {
+          const selected = sourceId ?? '';
+          calls.push(selected);
+          if (selected === '/throws') throw new Error('external indexing exception');
+          if (selected === '/index-error' || selected === '/index-cancelled') {
+            return {
+              ok: true,
+              value: buildReingestSuccess({
+                sourceId: selected,
+                status: selected === '/index-error' ? 'error' : 'cancelled',
+                completionMode: null,
+                errorCode: selected === '/index-error' ? 'INDEX_FAILED' : null,
+              }),
+            };
+          }
+          if (selected === '/after-failures') {
+            return { ok: true, value: buildReingestSuccess({ sourceId: selected }) };
+          }
+          return runReingestRepository({ sourceId: selected }, {
+            listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
+            enqueueOrReuseIngestRequest: async () => {
+              throw Object.assign(new Error('queue unavailable for test'), { code: 'QUEUE_UNAVAILABLE' });
+            },
+          });
+        },
+      },
+    },
+  );
+});
+
+test('human cancellation during a failed native reingest stops later steps and checkpoints the handled failure', async () => {
+  const conversationId = 'flow-native-reingest-human-stop';
+  const repos: RepoEntry[] = [];
+  const calls: string[] = [];
+  let markStarted!: () => void;
+  let releaseIndexing!: () => void;
+  const started = new Promise<void>((resolve) => { markStarted = resolve; });
+  const indexingGate = new Promise<void>((resolve) => { releaseIndexing = resolve; });
+  await withFlowServer(
+    async ({ baseUrl, wsUrl, tmpDir }) => {
+      const flowName = 'native-reingest-human-stop';
+      const sourceRoot = path.join(tmpDir, flowName);
+      repos.push(buildRepoEntry({ containerPath: sourceRoot }));
+      await writeFlowFile({
+        repoRoot: sourceRoot,
+        flowName,
+        steps: [
+          { type: 'reingest', sourceId: '/cancelled-operation' },
+          { type: 'reingest', sourceId: '/must-not-run' },
+        ],
+      });
+      await subscribeConversationAndWaitReady({ ws: wsUrl, conversationId });
+      await supertest(baseUrl)
+        .post(`/flows/${flowName}/run`)
+        .send({ conversationId, sourceId: sourceRoot })
+        .expect(202);
+      try {
+        await withTimeout(started, 4000, 'Timed out waiting for native reingest');
+        await supertest(baseUrl)
+          .post(`/flows/runs/${conversationId}/stop`)
+          .expect(202);
+      } finally {
+        releaseIndexing();
+      }
+      const turns = await waitForTurns(conversationId, (items) =>
+        items.some((turn) => turn.role === 'assistant' && turn.status === 'failed'),
+      );
+      await waitForRuntimeCleanup(conversationId);
+      assert.match(turns.find((turn) => turn.status === 'failed')?.content ?? '', /indexing stopped externally/);
+      assert.deepEqual(calls, ['/cancelled-operation']);
+      const flow = memoryConversations.get(conversationId)?.flags?.flow as
+        | { stepPath?: number[]; runLifecycle?: { status?: string } }
+        | undefined;
+      assert.deepEqual(flow?.stepPath, [0]);
+      assert.equal(flow?.runLifecycle?.status, 'stopped');
+      await supertest(baseUrl)
+        .post(`/flows/${flowName}/run`)
+        .send({ conversationId, sourceId: sourceRoot, resumeStepPath: flow?.stepPath })
+        .expect(202);
+      await waitForTurns(conversationId, (items) =>
+        items.some((turn) => turn.content.includes('/must-not-run')),
+      );
+      await waitForRuntimeCleanup(conversationId);
+      assert.deepEqual(calls, ['/cancelled-operation', '/must-not-run']);
+      cleanupMemory(conversationId);
+    },
+    {
+      listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
+      flowServiceDeps: {
+        runReingestRepository: async ({ sourceId }) => {
+          calls.push(sourceId ?? '');
+          if (sourceId === '/must-not-run') {
+            return { ok: true, value: buildReingestSuccess({ sourceId }) };
+          }
+          markStarted();
+          await indexingGate;
+          throw new Error('indexing stopped externally');
+        },
+      },
+    },
+  );
+});
+
 test('top-level flow target working reuses the selected repository path and preserves shared reingest default wait dispatch', async () => {
   const repos: RepoEntry[] = [];
   const calls: unknown[] = [];
@@ -2524,7 +2691,7 @@ test('top-level flow target working reuses the selected repository path and pres
   );
 });
 
-test('top-level flow target working propagates wait-time queue-read outage as retryable QUEUE_UNAVAILABLE failure', async () => {
+test('top-level flow target working records wait-time queue-read outage', async () => {
   const repos: RepoEntry[] = [];
   const calls: unknown[] = [];
 
@@ -2557,16 +2724,15 @@ test('top-level flow target working propagates wait-time queue-read outage as re
         })
         .expect(202);
 
-      const final = (await waitForFlowFinal({
-        ws: wsUrl,
-        conversationId,
-        status: 'failed',
-      })) as { error?: { message?: string } };
+      const turns = await waitForTurns(conversationId, (items) =>
+        items.some((turn) => turn.role === 'assistant' && turn.status === 'failed'),
+      );
       assert.match(
-        final.error?.message ?? '',
+        turns.find((turn) => turn.status === 'failed')?.content ?? '',
         /unavailable while waiting for re-ingest completion/i,
       );
       assert.deepEqual(calls, [{ sourceId: workingRoot }]);
+      await waitForRuntimeCleanup(conversationId);
       cleanupMemory(conversationId);
     },
     {
@@ -2624,16 +2790,15 @@ test('top-level flow target working receives the structured OPENAI_MODEL_UNAVAIL
         })
         .expect(202);
 
-      const final = (await waitForFlowFinal({
-        ws: wsUrl,
-        conversationId,
-        status: 'failed',
-      })) as { error?: { message?: string } };
+      const turns = await waitForTurns(conversationId, (items) =>
+        items.some((turn) => turn.role === 'assistant' && turn.status === 'failed'),
+      );
       assert.equal(
-        final.error?.message,
+        turns.find((turn) => turn.status === 'failed')?.content,
         'Requested OpenAI embedding model is unavailable for this deployment',
       );
       assert.deepEqual(calls, [{ sourceId: workingRoot }]);
+      await waitForRuntimeCleanup(conversationId);
       cleanupMemory(conversationId);
     },
     {
@@ -2910,7 +3075,7 @@ test('flow-owned command target working reuses the selected working repository p
   );
 });
 
-test('top-level flow target working fails fast when there is no owning repository path', async () => {
+test('top-level flow target working records a missing owning repository path', async () => {
   await withFlowServer(
     async ({ baseUrl, wsUrl, tmpDir }) => {
       const conversationId = 'flow-target-working-missing-owner';
@@ -2928,15 +3093,14 @@ test('top-level flow target working fails fast when there is no owning repositor
         .send({ conversationId })
         .expect(202);
 
-      const final = (await waitForFlowFinal({
-        ws: wsUrl,
-        conversationId,
-        status: 'failed',
-      })) as { error?: { message?: string } };
+      const turns = await waitForTurns(conversationId, (items) =>
+        items.some((turn) => turn.role === 'assistant' && turn.status === 'failed'),
+      );
       assert.match(
-        final.error?.message ?? '',
+        turns.find((turn) => turn.status === 'failed')?.content ?? '',
         /target "working" requires a selected working repository path/i,
       );
+      await waitForRuntimeCleanup(conversationId);
       cleanupMemory(conversationId);
     },
     {

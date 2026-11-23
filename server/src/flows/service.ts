@@ -11583,7 +11583,7 @@ async function runFlowUnlocked(params: {
         errorCode: 'INVALID_REQUEST',
         command,
       });
-      return 'failed';
+      return 'ok';
     }
 
     if (!result.ok) {
@@ -11598,7 +11598,7 @@ async function runFlowUnlocked(params: {
         errorCode: 'INVALID_REQUEST',
         command,
       });
-      return 'failed';
+      return 'ok';
     }
 
     const flowServiceDeps = getEffectiveFlowServiceDeps();
@@ -11629,11 +11629,6 @@ async function runFlowUnlocked(params: {
       },
     });
 
-    const pendingCancel = consumePendingConversationCancel({
-      conversationId: params.conversationId,
-      runToken: params.runToken,
-    });
-    const continuedToNextStep = !pendingCancel;
     append({
       level: 'info',
       message: 'DEV-0000045:T10:flow_reingest_step_recorded',
@@ -11654,11 +11649,10 @@ async function runFlowUnlocked(params: {
         repositories:
           result.value.kind === 'batch' ? result.value.repositories : null,
         callId,
-        continuedToNextStep,
       },
     });
 
-    return pendingCancel ? 'stopped' : 'ok';
+    return 'ok';
   };
 
   const runStartLoopStep = async (
@@ -12886,6 +12880,7 @@ async function runFlowUnlocked(params: {
           },
         );
         await persistRuntimeResumeState(lastCompletedStepPath);
+        stepInflightId = crypto.randomUUID();
         appendFlowRuntimeDiagnostic(
           'flows.test.reingest_step_resume_state_persist_complete',
           {

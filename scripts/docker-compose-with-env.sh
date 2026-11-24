@@ -145,6 +145,7 @@ resolve_docker_socket() {
 parse_compose_args() {
   COMPOSE_FILES=()
   COMPOSE_FILE_EXPLICIT=0
+  COMPOSE_PROJECT_DIRECTORY=""
   COMPOSE_OPTIONS=()
   COMPOSE_SUBCOMMAND=""
   COMPOSE_SUBCOMMAND_ARGS=()
@@ -161,6 +162,9 @@ parse_compose_args() {
             COMPOSE_FILES+=("$2")
             COMPOSE_FILE_EXPLICIT=1
           fi
+          if [ "$1" = "--project-directory" ]; then
+            COMPOSE_PROJECT_DIRECTORY="$2"
+          fi
           COMPOSE_OPTIONS+=("$1" "$2")
           shift 2
           continue
@@ -170,6 +174,9 @@ parse_compose_args() {
             --file=*)
               COMPOSE_FILES+=("${1#*=}")
               COMPOSE_FILE_EXPLICIT=1
+              ;;
+            --project-directory=*)
+              COMPOSE_PROJECT_DIRECTORY="${1#*=}"
               ;;
           esac
           COMPOSE_OPTIONS+=("$1")
@@ -459,6 +466,21 @@ process.stdout.write(JSON.stringify(Object.fromEntries(["CODEINFO_CODEX_SQLITE_V
   # An implicit invocation may select E2E/custom files through dotenv instead.
   if [ "${COMPOSE_FILE_EXPLICIT}" -eq 0 ] && [ -n "$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).COMPOSE_FILE)' "${selection}")" ]; then
     return 0
+  fi
+  if [ "${COMPOSE_FILE_EXPLICIT}" -eq 0 ]; then
+    # Compose auto-discovers these names from its working directory. Adding -f
+    # would suppress overrides or replace a preferred custom base, so opt out.
+    # Names/order: compose-spec/compose-go cli/options.go Default*FileNames.
+    if ! node -e '
+const fs = require("node:fs"), path = require("node:path");
+const [repoRoot, projectDirectory] = process.argv.slice(1);
+const directory = path.resolve(projectDirectory || process.cwd());
+if (directory !== path.resolve(repoRoot)) process.exit(1);
+const bases = ["compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml"];
+const overrides = ["compose.override.yml", "compose.override.yaml", "docker-compose.override.yml", "docker-compose.override.yaml"];
+const selectedBase = bases.find(name => fs.existsSync(path.join(directory, name)));
+process.exit(selectedBase === "docker-compose.yml" && !overrides.some(name => fs.existsSync(path.join(directory, name))) ? 0 : 1);
+' "${repo_root}" "${COMPOSE_PROJECT_DIRECTORY}"; then return 0; fi
   fi
   seed_file="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).CODEINFO_CODEX_SQLITE_THREAD_HISTORY_SEED)' "${selection}")"
   seed_hash="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).CODEINFO_CODEX_SQLITE_THREAD_HISTORY_SHA256)' "${selection}")"

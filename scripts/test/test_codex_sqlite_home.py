@@ -198,6 +198,17 @@ class DirectCliTest(unittest.TestCase):
             '--config', 'sqlite_home="/app/codex-sqlite/shared"',
             'exec', '-c', 'model="test"', '--', 'prompt'])
 
+    def test_attached_short_sqlite_overrides_are_removed_without_changing_other_arguments(self):
+        cli = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'codex-sqlite-cli.py'))
+        for override in ['-c=sqlite_home="/wrong"', '-csqlite_home="/wrong"',
+                         '-c= sqlite_home ="/wrong"', '-c sqlite_home ="/wrong"']:
+            with self.subTest(override=override):
+                remaining = ['-c=model="test"', '-ccwd="/data"', '-c=sqlite_home_other="keep"',
+                             '--color=auto', '--', override, '-c=sqlite_home="prompt-text"',
+                             '--config', 'sqlite_home="also-prompt-text"']
+                self.assertEqual(cli['route_arguments'](['exec', override, *remaining], '/app/codex-sqlite/shared'), [
+                    '--config', 'sqlite_home="/app/codex-sqlite/shared"', 'exec', *remaining])
+
 
 if __name__ == '__main__':
     unittest.main()

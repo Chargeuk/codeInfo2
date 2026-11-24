@@ -15,6 +15,7 @@ setup() {
   export CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT='CODEINFO_CODEX_SQLITE_VOLUME=1'
   export HOME="${SQLITE_TMP}/home"
   mkdir -p "${HOME}/.docker/run" "${SQLITE_TMP}/bin" "${SQLITE_TMP}/scripts"
+  printf 'services: {}\n' > "${SQLITE_TMP}/docker-compose.yml"
   python3 -c 'import socket,sys; s=socket.socket(socket.AF_UNIX); s.bind(sys.argv[1])' "${HOME}/.docker/run/docker.sock"
   export DOCKER_HOST="unix://${HOME}/.docker/run/docker.sock"
   unset DOCKER_CONTEXT
@@ -150,4 +151,87 @@ run_sqlite_wrapper() {
     run grep -F -- 'docker-compose.codex-sqlite.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
     if [ -z "${selected}" ]; then assert_success; else assert_failure; fi
   done
+}
+
+@test "bind writer check covers writable parents but ignores readonly mounts and siblings" {
+  local descriptor='{"type":"bind","sourceName":"/test/repo/codex"}'
+  for source in /test/repo/codex /test/repo /test /; do
+    run node "${CODEINFO2_REPO_ROOT}/scripts/codex-sqlite-volume.mjs" check-writers "${descriptor}" <<< "[{\"Name\":\"legacy\",\"Mounts\":[{\"Type\":\"bind\",\"Source\":\"${source}\",\"RW\":true}],\"active\":false}]"
+    assert_failure
+    assert_output --partial 'stop the existing Codex source writer'
+  done
+  for source in /test/repo/codex-other /test/repo-other /test/other; do
+    run node "${CODEINFO2_REPO_ROOT}/scripts/codex-sqlite-volume.mjs" check-writers "${descriptor}" <<< "[{\"Name\":\"sibling\",\"Mounts\":[{\"Type\":\"bind\",\"Source\":\"${source}\",\"RW\":true}],\"active\":false}]"
+    assert_success
+  done
+  for source in /test/repo/codex /test/repo; do
+    run node "${CODEINFO2_REPO_ROOT}/scripts/codex-sqlite-volume.mjs" check-writers "${descriptor}" <<< "[{\"Name\":\"reader\",\"Mounts\":[{\"Type\":\"bind\",\"Source\":\"${source}\",\"RW\":false}],\"active\":false}]"
+    assert_success
+  done
+  run node "${CODEINFO2_REPO_ROOT}/scripts/codex-sqlite-volume.mjs" check-writers "${descriptor}" <<< '[{"Name":"ready","Mounts":[{"Type":"bind","Source":"/test/repo","RW":true}],"active":true}]'
+  assert_success
+}
+
+@test "named volume writer matching stays exact with its active-container exemption" {
+  local descriptor='{"type":"volume","sourceName":"project_codex-data"}'
+  run node "${CODEINFO2_REPO_ROOT}/scripts/codex-sqlite-volume.mjs" check-writers "${descriptor}" <<< '[{"Name":"legacy","Mounts":[{"Type":"volume","Name":"project_codex-data","RW":true}],"active":false}]'
+  assert_failure
+  run node "${CODEINFO2_REPO_ROOT}/scripts/codex-sqlite-volume.mjs" check-writers "${descriptor}" <<< '[{"Name":"other","Mounts":[{"Type":"volume","Name":"project_codex-data-other","RW":true}],"active":false}]'
+  assert_success
+  run node "${CODEINFO2_REPO_ROOT}/scripts/codex-sqlite-volume.mjs" check-writers "${descriptor}" <<< '[{"Name":"ready","Mounts":[{"Type":"volume","Name":"project_codex-data","RW":true}],"active":true}]'
+  assert_success
+}
+
+@test "implicit override discovery is preserved with blank COMPOSE_FILE for every default name" {
+  SQLITE_TMP="$(cd "${SQLITE_TMP}" && pwd -P)"
+  export CODEINFO_COMPOSE_REPO_ROOT_OVERRIDE="${SQLITE_TMP}"
+  export CODEINFO_TEST_DOCKER_COMPOSE_ENVIRONMENT_OUTPUT="$(printf '%s\n' 'CODEINFO_CODEX_SQLITE_VOLUME=1' 'COMPOSE_FILE=')"
+  for override in compose.override.yml compose.override.yaml docker-compose.override.yml docker-compose.override.yaml; do
+    printf 'services: {}\n' > "${SQLITE_TMP}/${override}"
+    : > "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    run bash -c 'cd "$1" && exec bash "$2" config' _ "${SQLITE_TMP}" "${CODEINFO2_REPO_ROOT}/scripts/docker-compose-with-env.sh"
+    assert_success
+    run grep -F -- 'compose -f ' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_failure
+    run grep -F -- 'docker-compose.codex-sqlite.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_failure
+    # An explicit checked-in base intentionally bypasses automatic overrides.
+    run_sqlite_wrapper docker-compose.yml
+    assert_success
+    run grep -F -- 'docker-compose.codex-sqlite.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_success
+    rm "${SQLITE_TMP}/${override}"
+  done
+}
+
+@test "implicit custom base and project-directory selections keep Compose defaults" {
+  SQLITE_TMP="$(cd "${SQLITE_TMP}" && pwd -P)"
+  export CODEINFO_COMPOSE_REPO_ROOT_OVERRIDE="${SQLITE_TMP}"
+  for base in compose.yaml compose.yml; do
+    printf 'services: {}\n' > "${SQLITE_TMP}/${base}"
+    : > "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    run bash -c 'cd "$1" && exec bash "$2" config' _ "${SQLITE_TMP}" "${CODEINFO2_REPO_ROOT}/scripts/docker-compose-with-env.sh"
+    assert_success
+    run grep -F -- 'docker-compose.codex-sqlite.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_failure
+    rm "${SQLITE_TMP}/${base}"
+  done
+  mkdir "${SQLITE_TMP}/custom"
+  printf 'services: {}\n' > "${SQLITE_TMP}/custom/compose.yaml"
+  for form in separate attached; do
+    : > "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    if [ "${form}" = separate ]; then
+      run bash -c 'cd "$1" && exec bash "$2" --project-directory "$1/custom" config' _ "${SQLITE_TMP}" "${CODEINFO2_REPO_ROOT}/scripts/docker-compose-with-env.sh"
+    else
+      run bash -c 'cd "$1" && exec bash "$2" --project-directory="$1/custom" config' _ "${SQLITE_TMP}" "${CODEINFO2_REPO_ROOT}/scripts/docker-compose-with-env.sh"
+    fi
+    assert_success
+    run grep -F -- 'docker-compose.codex-sqlite.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+    assert_failure
+  done
+  : > "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  run bash -c 'cd "$1" && exec bash "$2" --project-directory "$1" config' _ "${SQLITE_TMP}" "${CODEINFO2_REPO_ROOT}/scripts/docker-compose-with-env.sh"
+  assert_success
+  run grep -F -- 'docker-compose.codex-sqlite.yml' "${CODEINFO_TEST_DOCKER_FIXTURE_LOG}"
+  assert_success
 }

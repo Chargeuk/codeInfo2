@@ -24,9 +24,14 @@ def route_arguments(args, target):
         if arg.startswith('--config=') and arg[len('--config='):].split('=', 1)[0].strip() == 'sqlite_home':
             index += 1
             continue
-        if arg.startswith('-csqlite_home='):
-            index += 1
-            continue
+        if arg.startswith('-c') and len(arg) > 2:
+            # Clap accepts both attached forms, including an optional '='.
+            config = arg[2:]
+            if config.startswith('='):
+                config = config[1:]
+            if config.split('=', 1)[0].strip() == 'sqlite_home':
+                index += 1
+                continue
         filtered.append(arg)
         index += 1
     return ['--config', 'sqlite_home=' + json.dumps(str(target)), *filtered]

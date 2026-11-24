@@ -38,7 +38,14 @@ try {
     const input = (await stdin()).trim();
     const containers = input.startsWith('[') ? JSON.parse(input) : input.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
     for (const container of containers) {
-      const sharesSource = container.Mounts?.some(m => type === 'volume' ? m.Name === sourceName : path.resolve(m.Source) === path.resolve(sourceName));
+      const sharesSource = container.Mounts?.some(m => {
+        if (type === 'volume') return m.Name === sourceName;
+        if (m.RW === false || (m.Type && m.Type !== 'bind')) return false;
+        // A writable parent bind can reach the source too; sibling prefixes
+        // cannot. path.relative keeps this check on directory boundaries.
+        const relative = path.relative(path.resolve(m.Source), path.resolve(sourceName));
+        return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+      });
       if (sharesSource && !container.active) {
         throw new Error(`stop the existing Codex source writer ${container.Name || container.Id} before enabling the SQLite volume`);
       }

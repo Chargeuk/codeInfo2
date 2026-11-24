@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { CodexOptions } from '@openai/codex-sdk';
@@ -351,14 +352,122 @@ export async function ensureCodexAuthFileStore(configPath: string): Promise<{
   return { changed, configPath };
 }
 
+/** Only the Mac Compose override activates this; the dotenv opt-in alone does not. */
+export function resolveCodexSqliteHome(
+  codexHome: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  if (env.CODEINFO_CODEX_SQLITE_VOLUME_ACTIVE !== '1') return undefined;
+  const home = path.resolve(codexHome);
+  const relative = path.relative('/app/codex', home);
+  const parts = relative.split(path.sep);
+  if (
+    relative !== '' &&
+    (parts.length !== 2 ||
+      parts[0] !== '.codeinfo-chat-runtimes' ||
+      !parts[1] ||
+      parts[1] === '.' ||
+      parts[1] === '..')
+  ) {
+    throw new Error(
+      'SQLite routing requires a shared or isolated CodeInfo Codex home',
+    );
+  }
+  return path.join('/app/codex-sqlite', relative || 'shared');
+}
+
+const codexSqliteDatabaseNames = new Set([
+  'logs_2.sqlite',
+  'goals_1.sqlite',
+  'memories_1.sqlite',
+  'memories_v2_1.sqlite',
+  'queue_1.sqlite',
+  'state_5.sqlite',
+  'thread_history_1.sqlite',
+]);
+
+/** Ready homes need no Python process on the Node request path. */
+export function isCodexSqliteHomeReady(
+  home: string,
+  sqliteHome: string,
+): boolean {
+  const marker = path.join(sqliteHome, '.codeinfo-sqlite-ready-v1');
+  const markerStat = fs.lstatSync(marker, { throwIfNoEntry: false });
+  if (!markerStat) return false;
+  if (!markerStat.isFile() || markerStat.isSymbolicLink()) {
+    throw new Error('Invalid Codex SQLite readiness marker');
+  }
+  for (const candidate of [home, sqliteHome]) {
+    let existing = candidate;
+    while (!fs.lstatSync(existing, { throwIfNoEntry: false })) {
+      existing = path.dirname(existing);
+    }
+    if (fs.realpathSync(existing) !== existing) {
+      throw new Error('Codex SQLite routing refuses symlinked homes');
+    }
+  }
+  const manifest: unknown = JSON.parse(fs.readFileSync(marker, 'utf8'));
+  if (
+    typeof manifest !== 'object' ||
+    manifest === null ||
+    !('version' in manifest) ||
+    manifest.version !== 1 ||
+    !('databases' in manifest) ||
+    !Array.isArray(manifest.databases)
+  ) {
+    throw new Error('Invalid Codex SQLite readiness manifest');
+  }
+  for (const name of manifest.databases) {
+    if (typeof name !== 'string' || !codexSqliteDatabaseNames.has(name)) {
+      throw new Error('Invalid Codex SQLite seeded database name');
+    }
+    const stat = fs.lstatSync(path.join(sqliteHome, name), {
+      throwIfNoEntry: false,
+    });
+    if (!stat?.isFile() || stat.isSymbolicLink()) {
+      throw new Error(
+        'Ready Codex SQLite volume is missing a seeded database; refusing overwrite',
+      );
+    }
+  }
+  return true;
+}
+
+export function codexSqliteCliArgs(
+  options: CodexOptions | undefined,
+): string[] {
+  const sqliteHome = options?.config?.sqlite_home;
+  return typeof sqliteHome === 'string'
+    ? ['--config', `sqlite_home=${JSON.stringify(sqliteHome)}`]
+    : [];
+}
+
 export function buildCodexOptions(params?: {
   codexHome?: string;
   runtimeConfig?: CodexOptions['config'];
   envOverrides?: NodeJS.ProcessEnv;
 }): CodexOptions | undefined {
   const home = resolveCodexHome(params?.codexHome);
+  const env = { ...process.env, ...(params?.envOverrides ?? {}) };
+  const sqliteHome = resolveCodexSqliteHome(home, env);
+  if (sqliteHome && !isCodexSqliteHomeReady(home, sqliteHome)) {
+    // New isolated homes may appear after startup. Initialization is idempotent
+    // and refuses corrupt/unready legacy data instead of creating empty state.
+    execFileSync(
+      'python3',
+      ['/app/scripts/codex-sqlite-home.py', '--home', home],
+      {
+        env,
+        stdio: ['ignore', 'ignore', 'pipe'],
+        timeout: 120_000,
+      },
+    );
+  }
+  const config = sqliteHome
+    ? { ...(params?.runtimeConfig ?? {}), sqlite_home: sqliteHome }
+    : params?.runtimeConfig;
   return {
-    ...(params?.runtimeConfig ? { config: params.runtimeConfig } : {}),
+    ...(config ? { config } : {}),
     env: {
       // ensure we give the full environment so MCP servers work
       ...process.env,

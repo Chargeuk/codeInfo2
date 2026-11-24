@@ -1,0 +1,10 @@
+# Added only by the wrapper for an opted-in local macOS Docker Desktop stack.
+services:
+  server:
+    environment:
+      CODEINFO_CODEX_SQLITE_VOLUME_ACTIVE: '1'
+    volumes:
+      - codex-sqlite:/app/codex-sqlite
+volumes:
+  # Compose scopes this name to its project (main and local remain independent).
+  codex-sqlite:

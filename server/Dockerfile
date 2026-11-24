@@ -287,6 +287,10 @@ RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
 
 # Prepare the mutable provider homes even when the gitignored repo-local directories are absent.
 RUN mkdir -p /app/codex/.agents/skills /app/copilot /app/lmstudio && chmod -R 777 /app/codex /app/copilot /app/lmstudio
+# Keep direct CLI calls aligned with the SDK even when TOML sets sqlite_home.
+RUN mkdir -p /opt/codeinfo/bin && \
+    ln -s "$(command -v codex)" /opt/codeinfo/bin/codex-native && \
+    ln -s /app/scripts/codex-sqlite-cli.py /opt/codeinfo/bin/codex
 ENV HOME=/app/codex
 ENV CODEX_HOME=/app/codex
 ENV CODEINFO_CODEX_HOME=/app/codex

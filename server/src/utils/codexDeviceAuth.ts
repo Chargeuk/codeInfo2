@@ -2,7 +2,11 @@ import { spawn } from 'node:child_process';
 
 import type { ProviderAuthDetectedState } from '@codeinfo2/common';
 
-import { buildCodexOptions, resolveCodexHome } from '../config/codexConfig.js';
+import {
+  buildCodexOptions,
+  codexSqliteCliArgs,
+  resolveCodexHome,
+} from '../config/codexConfig.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { truncateText } from './truncateText.js';
@@ -253,9 +257,13 @@ export async function runCodexDeviceAuth(params?: {
   baseLogger.info({ codexHome }, 'DEV-0000031:T1:codex_device_auth_cli_start');
 
   return new Promise((resolve) => {
-    const child = spawnFn('codex', ['login', '--device-auth'], {
-      env: options?.env,
-    });
+    const child = spawnFn(
+      'codex',
+      ['login', '--device-auth', ...codexSqliteCliArgs(options)],
+      {
+        env: options?.env,
+      },
+    );
     let stdout = '';
     let stderr = '';
     let resolved = false;

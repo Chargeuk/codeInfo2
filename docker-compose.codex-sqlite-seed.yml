@@ -1,0 +1,12 @@
+# Local-stack recovery input; the original home is never replaced.
+services:
+  server:
+    environment:
+      CODEINFO_CODEX_SQLITE_THREAD_HISTORY_SHA256: ${CODEINFO_CODEX_SQLITE_THREAD_HISTORY_SHA256:?verified seed hash required}
+    volumes:
+      - type: bind
+        source: ${CODEINFO_CODEX_SQLITE_THREAD_HISTORY_SEED:?verified seed file required}
+        target: /seed/codex-thread-history.sqlite
+        read_only: true
+        bind:
+          create_host_path: false

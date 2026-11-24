@@ -1,6 +1,9 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { buildCodexOptions } from '../config/codexConfig.js';
+import {
+  buildCodexOptions,
+  codexSqliteCliArgs,
+} from '../config/codexConfig.js';
 
 /** Short-lived, no-inference RPC connection sharing the SDK's CODEX_HOME. */
 export class CodexAppServer {
@@ -28,13 +31,17 @@ export class CodexAppServer {
 
   constructor(spawnProcess: typeof spawn = spawn, codexHome?: string) {
     const options = buildCodexOptions({ codexHome });
-    this.child = spawnProcess('codex', ['app-server', '--listen', 'stdio://'], {
-      env: options?.env,
-      stdio: ['pipe', 'pipe', 'ignore'],
-      // The npm launcher may spawn a native child with inherited pipes. Give
-      // only this helper its own process group; source exec workers are unrelated.
-      detached: this.ownsProcessGroup,
-    });
+    this.child = spawnProcess(
+      'codex',
+      ['app-server', '--listen', 'stdio://', ...codexSqliteCliArgs(options)],
+      {
+        env: options?.env,
+        stdio: ['pipe', 'pipe', 'ignore'],
+        // The npm launcher may spawn a native child with inherited pipes. Give
+        // only this helper its own process group; source exec workers are unrelated.
+        detached: this.ownsProcessGroup,
+      },
+    );
     this.lines = createInterface({ input: this.child.stdout });
     this.lines.on('line', (line) => {
       let response: {

@@ -1,0 +1,12 @@
+# Optional verified local shared-state recovery, separate from thread history.
+services:
+  server:
+    environment:
+      CODEINFO_CODEX_SQLITE_STATE_SHA256: ${CODEINFO_CODEX_SQLITE_STATE_SHA256:?verified state seed hash required}
+    volumes:
+      - type: bind
+        source: ${CODEINFO_CODEX_SQLITE_STATE_SEED:?verified state seed file required}
+        target: /seed/codex-state.sqlite
+        read_only: true
+        bind:
+          create_host_path: false

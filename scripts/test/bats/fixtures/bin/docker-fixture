@@ -31,6 +31,14 @@ case "${1:-}" in
       exit 0
     fi
     ;;
+  ps)
+    printf '%s' "${CODEINFO_TEST_DOCKER_PS_OUTPUT:-}"
+    exit 0
+    ;;
+  inspect)
+    printf '%s' "${CODEINFO_TEST_DOCKER_INSPECT_OUTPUT:-[]}"
+    exit 0
+    ;;
   compose)
     shift
     compose_args=" $* "

@@ -348,8 +348,17 @@ should_check_host_ports() {
   esac
 }
 
+compose_config() {
+  # Bash 3.2 cannot expand an empty array under set -u (implicit main calls).
+  if [ "${#COMPOSE_OPTIONS[@]}" -gt 0 ]; then
+    docker_cmd compose "${COMPOSE_OPTIONS[@]}" config "$@"
+  else
+    docker_cmd compose config "$@"
+  fi
+}
+
 render_compose_config_json() {
-  docker_cmd compose "${COMPOSE_OPTIONS[@]}" config --format json
+  compose_config --format json
 }
 
 add_optional_local_share_if_available() {
@@ -411,6 +420,84 @@ child.once("exit", (code) => { clearTimeout(timer); process.exitCode = !timedOut
   if [ "${#COMPOSE_SUBCOMMAND_ARGS[@]}" -gt 0 ]; then
     COMPOSE_FINAL_ARGS+=("${COMPOSE_SUBCOMMAND_ARGS[@]}")
   fi
+}
+
+add_optional_codex_sqlite_volume() {
+  [ "${HOST_OS}" = "Darwin" ] || return 0
+  [[ "${DOCKER_OPERATING_SYSTEM_LC}" == *"docker desktop"* ]] || return 0
+  # Basenames alone would accidentally opt in custom/remote workflows.
+  [ "${#COMPOSE_FILES[@]}" -eq 1 ] || return 0
+  local repo_root selected endpoint selection seed_file seed_hash state_file state_hash
+  repo_root="$(repo_root_for_compose_wrapper)"
+  selected="$(node -e 'process.stdout.write(require("node:path").resolve(process.argv[1]))' "${COMPOSE_FILES[0]}")"
+  case "${selected}" in
+    "${repo_root}/docker-compose.yml" | "${repo_root}/docker-compose.local.yml") ;;
+    *) return 0 ;;
+  esac
+  # DOCKER_CONTEXT takes precedence over DOCKER_HOST in the Docker CLI.
+  if [ -n "${DOCKER_CONTEXT:-}" ] || [ -z "${DOCKER_HOST:-}" ]; then
+    endpoint="$(docker_cmd context inspect --format '{{ .Endpoints.docker.Host }}')"
+  else
+    endpoint="${DOCKER_HOST}"
+  fi
+  case "${endpoint}" in unix://*) ;; *) return 0 ;; esac
+  [ -S "${endpoint#unix://}" ] || return 0
+  if ! node -e '
+const fs = require("node:fs"), path = require("node:path");
+const socket = fs.realpathSync(process.argv[1]);
+const allowed = [".docker/run/docker.sock", ".docker/desktop/docker.sock"]
+  .map(p => path.join(process.env.HOME, p));
+process.exit(allowed.some(p => { try { return fs.realpathSync(p) === socket; } catch { return false; } }) ? 0 : 1);
+' "${endpoint#unix://}"; then return 0; fi
+  # Compose owns dotenv parsing, including quotes, interpolation and precedence.
+  selection="$(compose_config --environment | node -e '
+let text = ""; process.stdin.on("data", c => text += c); process.stdin.on("end", () => {
+const values = Object.fromEntries(text.split(/\r?\n/).filter(l => l.includes("=")).map(l => [l.slice(0,l.indexOf("=")), l.slice(l.indexOf("=")+1)]));
+process.stdout.write(JSON.stringify(Object.fromEntries(["CODEINFO_CODEX_SQLITE_VOLUME", "CODEINFO_CODEX_SQLITE_THREAD_HISTORY_SEED", "CODEINFO_CODEX_SQLITE_THREAD_HISTORY_SHA256", "CODEINFO_CODEX_SQLITE_STATE_SEED", "CODEINFO_CODEX_SQLITE_STATE_SHA256", "COMPOSE_FILE"].map(k => [k, values[k] || ""]))));
+});')"
+  [ "$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).CODEINFO_CODEX_SQLITE_VOLUME)' "${selection}")" = "1" ] || return 0
+  # An implicit invocation may select E2E/custom files through dotenv instead.
+  if [ "${COMPOSE_FILE_EXPLICIT}" -eq 0 ] && [ -n "$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).COMPOSE_FILE)' "${selection}")" ]; then
+    return 0
+  fi
+  seed_file="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).CODEINFO_CODEX_SQLITE_THREAD_HISTORY_SEED)' "${selection}")"
+  seed_hash="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).CODEINFO_CODEX_SQLITE_THREAD_HISTORY_SHA256)' "${selection}")"
+  state_file="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).CODEINFO_CODEX_SQLITE_STATE_SEED)' "${selection}")"
+  state_hash="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).CODEINFO_CODEX_SQLITE_STATE_SHA256)' "${selection}")"
+  if [ -n "${seed_file}" ] || [ -n "${seed_hash}" ] || [ -n "${state_file}" ] || [ -n "${state_hash}" ]; then
+    [ "${selected}" = "${repo_root}/docker-compose.local.yml" ] || { printf '%s\n' 'CODEINFO SQLite recovery input is supported only for compose:local.' >&2; return 1; }
+    if [ -n "${seed_file}" ] || [ -n "${seed_hash}" ]; then
+      node "${repo_root}/scripts/codex-sqlite-volume.mjs" verify-seed "${seed_file}" "${seed_hash}"
+    fi
+    if [ -n "${state_file}" ] || [ -n "${state_hash}" ]; then
+      node "${repo_root}/scripts/codex-sqlite-volume.mjs" verify-seed "${state_file}" "${state_hash}"
+    fi
+  fi
+  # Refuse legacy source writers before first initialization; opted-in servers
+  # already route their SQLite writes to the independent volume.
+  if [ "${COMPOSE_SUBCOMMAND}" = "up" ] || [ "${COMPOSE_SUBCOMMAND}" = "run" ]; then
+    local mount_descriptor running_ids
+    mount_descriptor="$(render_compose_config_json | node "${repo_root}/scripts/codex-sqlite-volume.mjs" describe-source)"
+    running_ids="$(docker_cmd ps -q)"
+    if [ -n "${running_ids}" ]; then
+      # Do not expose Compose environment values in argv or inspect credentials.
+      docker_cmd inspect --format '{{$active := false}}{{range .Config.Env}}{{if eq . "CODEINFO_CODEX_SQLITE_VOLUME_ACTIVE=1"}}{{$active = true}}{{end}}{{end}}{"Name":{{json .Name}},"Mounts":{{json .Mounts}},"active":{{$active}}}' ${running_ids} |
+        node "${repo_root}/scripts/codex-sqlite-volume.mjs" check-writers "${mount_descriptor}"
+    fi
+  fi
+  if [ "${COMPOSE_FILE_EXPLICIT}" -eq 0 ]; then COMPOSE_OPTIONS+=(-f "${COMPOSE_FILES[0]}"); fi
+  COMPOSE_OPTIONS+=(-f "${repo_root}/docker-compose.codex-sqlite.yml")
+  COMPOSE_FILES+=("${repo_root}/docker-compose.codex-sqlite.yml")
+  if [ -n "${seed_file}" ]; then
+    COMPOSE_OPTIONS+=(-f "${repo_root}/docker-compose.codex-sqlite-seed.yml")
+    COMPOSE_FILES+=("${repo_root}/docker-compose.codex-sqlite-seed.yml")
+  fi
+  if [ -n "${state_file}" ]; then
+    COMPOSE_OPTIONS+=(-f "${repo_root}/docker-compose.codex-sqlite-state-seed.yml")
+    COMPOSE_FILES+=("${repo_root}/docker-compose.codex-sqlite-state-seed.yml")
+  fi
+  COMPOSE_FINAL_ARGS=("${COMPOSE_OPTIONS[@]}" "${COMPOSE_SUBCOMMAND}")
+  if [ "${#COMPOSE_SUBCOMMAND_ARGS[@]}" -gt 0 ]; then COMPOSE_FINAL_ARGS+=("${COMPOSE_SUBCOMMAND_ARGS[@]}"); fi
 }
 
 add_optional_nvidia_renderer() {
@@ -987,6 +1074,7 @@ else
   export CODEINFO_RUNTIME_ENV_FILE_SOURCE="unchanged"
 fi
 
+add_optional_codex_sqlite_volume
 add_optional_local_share_if_available
 add_optional_nvidia_renderer
 run_compose_preflight_if_needed

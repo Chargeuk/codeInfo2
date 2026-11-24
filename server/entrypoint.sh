@@ -69,6 +69,21 @@ fi
 
 codeinfo-prepare-rust-homes
 
+if [ "${CODEINFO_CODEX_SQLITE_VOLUME_ACTIVE:-}" = "1" ]; then
+  # Seed before any provider/native child starts. The original home and Mongo
+  # stay independent; only verified SQLite backups enter the new volume.
+  prepare_runtime_tree /app/codex-sqlite
+  python3 /app/scripts/codex-sqlite-home.py
+  if [ "$(id -u)" = "0" ]; then
+    chown -R "${runtime_uid}:${runtime_gid}" /app/codex-sqlite
+  fi
+  # Activate native routing only in the opted-in server process tree.
+  export PATH="/opt/codeinfo/bin:${PATH}"
+  if [ "${CODEINFO_CODEX_SQLITE_SEED_ONLY:-}" = "1" ]; then
+    exit 0
+  fi
+fi
+
 drop_privileges_and_exec_node() {
   if [ "$(id -u)" != "0" ]; then
     exec node dist/index.js

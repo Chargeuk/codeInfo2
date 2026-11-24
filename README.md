@@ -653,3 +653,70 @@ During the manual proof pass, use the running UI at `http://host.docker.internal
 
 - Commit `.env` files with safe defaults.
 - Keep secrets in `.env.local` (git-ignored) when needed.
+
+### Optional Codex SQLite volume on macOS
+
+On this Mac's local Docker Desktop daemon, set `CODEINFO_CODEX_SQLITE_VOLUME=1`
+in `server/.env.local`, then use the normal `npm run compose` or
+`npm run compose:local` wrapper. Leave it unset for the existing behavior. The
+wrapper resolves the flag through Compose's dotenv handling. Linux, WSL, remote
+Docker contexts, custom Compose files and E2E keep their existing mounts even
+when the flag is present.
+
+The additive override mounts a project-scoped `codex-sqlite` named volume at
+`/app/codex-sqlite`. Main and local projects get separate volumes. Their existing
+`/app/codex` homes, session JSONL files, configuration, credentials and Mongo
+volumes remain in place. The pinned Codex 0.167.1 `sqlite_home` configuration is
+set explicitly for SDK and native CLI calls, with separate directories for the
+shared home and each `.codeinfo-chat-runtimes/<conversation>` home. This routing
+outranks an inherited `sqlite_home` setting. A custom `log_dir` remains an explicit
+Codex exception: its log database follows that directory; remove that setting if
+its database should use the volume too. Normal text logs are not migrated.
+
+Stop existing Codex writers using that stack's original home before first
+startup. Startup stages the SQLite files with their WAL/journal siblings, uses
+SQLite's consistent Backup API, verifies database integrity and source stability,
+then atomically marks each home ready. Originals and their siblings are retained.
+A ready home is never reseeded. Interrupted initialization can be retried;
+corruption, changed sources or nonempty unknown destinations stop startup with a
+clear error. Existing sessions without their required SQLite state also stop
+startup, so legacy history cannot silently become an empty database. A newly
+created isolated chat home is initialized on its first normal Codex launch.
+The image's existing Python SQLite runtime supplies the backup implementation;
+startup gives the new volume the configured runtime UID/GID before launching the
+server.
+
+For externally recovered **local shared** state, stage independently verified,
+standalone SQLite backups outside the original Codex home. Only the opt-in flag
+needs to persist in `server/.env.local`. Build the current local image, then seed
+once without starting Mongo or retaining recovery mounts on the normal server:
+
+```sh
+npm run compose:local:build
+CODEINFO_CODEX_SQLITE_THREAD_HISTORY_SEED=/absolute/verified/thread_history_1.sqlite \
+CODEINFO_CODEX_SQLITE_THREAD_HISTORY_SHA256=<verified-history-sha256> \
+CODEINFO_CODEX_SQLITE_STATE_SEED=/absolute/verified/state_5.sqlite \
+CODEINFO_CODEX_SQLITE_STATE_SHA256=<verified-state-sha256> \
+bash scripts/docker-compose-with-env.sh \
+  --env-file server/.env --env-file server/.env.local --env-file client/.env.local \
+  -f docker-compose.local.yml run --rm --no-deps \
+  -e CODEINFO_CODEX_SQLITE_SEED_ONLY=1 server
+npm run compose:local:up
+```
+
+The `STATE_SEED`/`STATE_SHA256` pair is optional; omit both lines when only
+thread history needs recovery. Use actual lowercase SHA-256 values from the
+independent recovery verification. Each recovery input is mounted read-only,
+hashed with bounded memory and checked for integrity and the pinned schema. The
+seed-only entrypoint performs the normal volume ownership setup and exits after
+initialization. It replaces only the supplied database(s) during the first
+shared-home seed. Other databases come from the original home, and isolated
+runtime homes retain their own state. Recovery inputs are rejected for the main
+stack and cannot overwrite a ready volume. Original databases are never repaired
+in place. For manual `docker exec` Codex checks use
+`/opt/codeinfo/bin/codex`: the opted-in entrypoint prepends this shim only for its
+server and child processes, leaving flag-off/Linux/E2E PATH unchanged.
+
+Disable the opt-in only after stopping the stack; it restores the old SQLite
+location and does not synchronize newer volume history back into the original
+home. No volume is deleted by this feature.

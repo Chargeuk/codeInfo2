@@ -196,8 +196,8 @@ tested; the proof page records the Puppeteer runtime-home caveat.
 - Copilot credential precedence is runtime-owned, not committed-env-owned. Checked-in env files may set `CODEINFO_COPILOT_HOME` and the optional CLI-path override, but they do not replace or mask `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, stored Copilot login state, or `gh` fallback. `/health` also stays process-only; Copilot readiness continues to surface through `/chat/providers` and `/chat/models` instead of server health.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 - Server SDK pin and runtime guard are coupled:
-  - `@openai/codex` and `@openai/codex-sdk` are pinned at `0.159.1` in `server/package.json`.
-  - startup guard requires exact `0.159.1`; pre-release, lower, and higher versions are rejected.
+  - `@openai/codex` and `@openai/codex-sdk` are pinned at `0.172.0` in `server/package.json`.
+  - startup guard requires exact `0.172.0`; pre-release, lower, and higher versions are rejected.
   - The OpenAI SDK is pinned at `7.25.0`.
   - The default Codex model catalog contains `gpt-6.1-sol`, `gpt-6-luna`, and `gpt-6-astra`. Explicit catalog overrides remain unchanged. Active repository and manual-testing Sol agents use GPT-6.1 Sol with their existing reasoning effort preserved.
   - if installed and required versions diverge, startup emits deterministic guard-rejection logs and the mismatch must be corrected before release.
@@ -666,7 +666,7 @@ when the flag is present.
 The additive override mounts a project-scoped `codex-sqlite` named volume at
 `/app/codex-sqlite`. Main and local projects get separate volumes. Their existing
 `/app/codex` homes, session JSONL files, configuration, credentials and Mongo
-volumes remain in place. The pinned Codex 0.167.1 `sqlite_home` configuration is
+volumes remain in place. The pinned Codex 0.172.0 `sqlite_home` configuration is
 set explicitly for SDK and native CLI calls, with separate directories for the
 shared home and each `.codeinfo-chat-runtimes/<conversation>` home. This routing
 outranks an inherited `sqlite_home` setting. A custom `log_dir` remains an explicit

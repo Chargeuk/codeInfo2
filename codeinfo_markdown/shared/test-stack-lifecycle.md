@@ -6,10 +6,10 @@ The stack lifecycle belongs to the repository testing workflow, not to the indiv
 
 ## Repository And Testing Scope
 
-A running stack is reclaimable only when current repository evidence supports both of these conclusions:
+A running stack may be stopped only when current repository evidence establishes both of these conclusions:
 
 1. the stack belongs to a repository that the calling prompt currently permits the agent to test; and
-2. the stack is the documented test or proof stack needed by the current testing or proof step.
+2. the stack is a documented test or proof stack for the selected target repository, and either is needed by the current step or is eligible for normal late-flow cleanup.
 
 Use the calling prompt's repository scope. Automated proof normally uses the persisted plan repositories. Manual proof may also use a supporting repository when its prompt permits that repository for honest proof.
 
@@ -27,7 +27,7 @@ Determine ownership from the best current evidence available rather than requiri
 
 Container names, project names, or occupied ports may support the decision, but none of them alone proves repository ownership. An occupied port by itself is never authority to stop a container.
 
-If the available evidence does not establish both repository ownership and testing applicability, do not stop the stack. Report the remaining conflict honestly.
+If the available evidence does not establish repository ownership and one of those applicable lifecycle purposes, do not stop the stack. Report the remaining conflict honestly.
 
 ## Reclaim Rules
 
@@ -45,13 +45,21 @@ Do not interrupt the same healthy stack between an already-completed startup ite
 
 Use repository wrappers instead of directly removing containers whenever a supported wrapper exists.
 
+## Normal Late-Flow Cleanup
+
+Only the parent-designated late flow step after native review owns normal all-stack cleanup. A per-task, whole-story, or parallel PR proof subflow must not independently initiate global late cleanup. The parent-designated cleanup owner waits until all active work that can use the selected target repository's test/proof stacks has reached a terminal result, then stops **all** verified test/proof stacks belonging to that selected target repository, including stacks not needed by another test. This is ordinary lifecycle cleanup, not cancellation handling. Before stopping each stack, check current active owners and verify the repository root/worktree, Compose project, config-file and working-directory metadata, and any human-selected port offset. Preserve the selected offset; do not switch ports or infer ownership from a port or container name. Do not stop a stack while an active owner still needs it.
+
+Use the selected target repository's verified shutdown path for the exact project and configuration. Preserve persistent data: do not pass volume-removal options, remove named or external volumes, or delete uploads or bind-mounted data. If the standard teardown path removes volumes, use a volume-preserving path only when current repository evidence establishes that it is supported for this target, project, and configuration. If a safe supported volume-preserving shutdown cannot be established, leave the affected stack/data intact and report the exact stack and unresolved cleanup action. Do not guess or substitute another repository's commands.
+
+The protected `compose:local` / `*-local` live development stack remains excluded unless the user explicitly authorizes stopping it. Preserve unrelated repositories' stacks and all human-selected offsets. Cancellation follows the caller's existing cancellation and ownership rules; this section adds no cancellation or cancellation-leak behavior. On cancellation, do not perform this normal late-flow all-stack cleanup unless the cancellation flow independently authorizes it.
+
 ## Protected And Uncertain Stacks
 
 Never stop or restart:
 
 - `compose:local`, a `*-local` Compose project, or `*-local` containers when repository guidance protects the local development stack;
 - a stack owned by another repository or worktree;
-- a stack that is unrelated to the current testing or proof step;
+- a stack unrelated to the selected target repository's test/proof lifecycle, including during normal late-flow cleanup;
 - or a stack whose ownership remains uncertain.
 
 An explicit user instruction may override a protected local-stack rule. A normal testing requirement does not.

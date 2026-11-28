@@ -31,25 +31,25 @@ If the available evidence does not establish repository ownership and one of tho
 
 ## Reclaim Rules
 
-When a pre-existing, stale, freshness-unknown, or conflicting stack is proven to be the repository-owned test stack required by the current proof:
+When a pre-existing, stale, freshness-unknown, or conflicting stack is proven to be the repository-owned test stack required by the current proof, it may be reclaimed regardless of which agent started it:
 
 1. record that the stack is being reclaimed;
-2. stop it with the repository's documented shutdown wrapper;
+2. stop the exact verified project and configuration with the repository's shutdown path, preserving volumes and other persistent data; if the standard wrapper removes volumes, use a verified volume-preserving Compose stop path rather than that destructive teardown;
 3. restart it with the documented startup workflow when the current proof requires a running stack;
 4. retry the affected proof step; and
 5. record the resulting lifecycle and proof outcome.
 
-It does not matter which earlier agent or flow step started that repository-owned test stack. Do not classify it as external or human-owned solely because the current agent did not start it.
+Do not classify it as external or human-owned solely because the current agent did not start it. Explicitly verified disposable test-only runtime state may be stopped and recreated under the documented test lifecycle; removing its containers may discard writable-layer data. Mounted uploads, named or external volumes, persistent or human data, and active users remain protected. If the disposable classification, protected-data boundary, or active use is uncertain, do not stop the stack; report the specific uncertainty.
 
 Do not interrupt the same healthy stack between an already-completed startup item and its later test and shutdown items merely because it is now running. Reclaim it only when it predates the current lifecycle, is stale or freshness-unknown, conflicts with the required startup step, or must be restarted after relevant changes.
 
-Use repository wrappers instead of directly removing containers whenever a supported wrapper exists.
+Reconcile a stale manifest or receipt only when its identity and staleness are verified, and only after safe shutdown; do not guess the target or change a human-selected offset. This lets a later preparation proceed without treating stale bookkeeping as live ownership.
 
 ## Normal Late-Flow Cleanup
 
 Only the parent-designated late flow step after native review owns normal all-stack cleanup. A per-task, whole-story, or parallel PR proof subflow must not independently initiate global late cleanup. The parent-designated cleanup owner waits until all active work that can use the selected target repository's test/proof stacks has reached a terminal result, then stops **all** verified test/proof stacks belonging to that selected target repository, including stacks not needed by another test. This is ordinary lifecycle cleanup, not cancellation handling. Before stopping each stack, check current active owners and verify the repository root/worktree, Compose project, config-file and working-directory metadata, and any human-selected port offset. Preserve the selected offset; do not switch ports or infer ownership from a port or container name. Do not stop a stack while an active owner still needs it.
 
-Use the selected target repository's verified shutdown path for the exact project and configuration. Preserve persistent data: do not pass volume-removal options, remove named or external volumes, or delete uploads or bind-mounted data. If the standard teardown path removes volumes, use a volume-preserving path only when current repository evidence establishes that it is supported for this target, project, and configuration. If a safe supported volume-preserving shutdown cannot be established, leave the affected stack/data intact and report the exact stack and unresolved cleanup action. Do not guess or substitute another repository's commands.
+Use the selected target repository's verified shutdown path for the exact project and configuration. Preserve persistent data: do not pass volume-removal options, remove named or external volumes, or delete uploads or bind-mounted data. A standard teardown that removes volumes is not suitable; use a verified exact-project/configuration volume-preserving stop path. Uncertainty about writable-layer data does not block stopping explicitly verified disposable test-only runtime state; if the disposable classification, protected-data boundary, or active use is uncertain, leave the stack intact and report the exact unresolved action. Do not guess the target, substitute another repository's commands, or change the human-selected offset.
 
 The protected `compose:local` / `*-local` live development stack remains excluded unless the user explicitly authorizes stopping it. Preserve unrelated repositories' stacks and all human-selected offsets. Cancellation follows the caller's existing cancellation and ownership rules; this section adds no cancellation or cancellation-leak behavior. On cancellation, do not perform this normal late-flow all-stack cleanup unless the cancellation flow independently authorizes it.
 

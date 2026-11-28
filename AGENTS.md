@@ -198,7 +198,7 @@ Shortcut:
 
 ### Stop Sequence
 
-1. Run `npm run compose:down`.
+1. Follow the shared test-stack lifecycle contract. Use `npm run compose:down` only when it preserves required persistent data; otherwise use a verified exact-project/configuration volume-preserving stop path. The parent-designated late step after native review stops all verified current-repository test/proof stacks after active users finish.
 
 ### Run Failure Diagnosis
 
@@ -207,14 +207,9 @@ Shortcut:
 3. Fix the failing container, config, or env issue.
 4. Re-run the same wrapper.
 
-### Repository-Owned Test Stack Reclamation
+### Repository-Owned Test Stack Lifecycle
 
-- Manual and automated testing agents may stop a pre-existing or stale Docker or Compose stack when current repository evidence proves that it belongs to a repository they are permitted to test and is the documented stack required by the current testing step.
-- Establish ownership from repository-supported wrappers, Compose configuration, and Compose metadata or labels. An occupied port or container name alone is not sufficient.
-- Reclaim the stack with its repository-supported shutdown wrapper, then continue the documented startup and proof lifecycle. The stack does not need to have been started by the same agent or flow step.
-- Do not interrupt a healthy stack in the middle of the current startup, test, and shutdown lifecycle.
-- If repository ownership or testing applicability remains uncertain, do not stop the stack; report the conflict honestly.
-- These permissions apply to repository test stacks only. The protected local development stack rules below still take precedence.
+Follow [`codeinfo_markdown/shared/test-stack-lifecycle.md`](codeinfo_markdown/shared/test-stack-lifecycle.md) when using, reclaiming, or cleaning up test/proof stacks. A tester may reclaim a verified current-repository stack before required startup without knowing which agent started it. The parent-designated late step after native review stops all verified current-repository test/proof stacks after active users finish. Preserve persistent data and the human-selected offset; keep the protected `codeinfo:local` stack excluded.
 
 ## Local Stack Safety
 

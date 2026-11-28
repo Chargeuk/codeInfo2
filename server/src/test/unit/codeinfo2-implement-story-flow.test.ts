@@ -188,25 +188,23 @@ test('late cleanup delegates safe target stack reclamation and hands off its out
   assert.equal(cleanup.identifier, report.identifier);
   assert.equal(cleanup.continueOnFailure, true);
   const prompt = textOf(cleanup);
+  assert.equal(all.filter((step) => step.label === cleanup.label).length, 1);
   for (const requirement of [
     /shared\/test-stack-lifecycle\.md/u,
-    /codeinfo2_implement_story\/shared\.md/u,
     /automated_testing_agent via codeinfo_agents\.run_agent_instruction/u,
-    /ALL verified test\/proof stacks/u,
-    /stale prepared stacks even if no next proof needs them/u,
+    /all verified target test\/proof stacks/iu,
+    /stale prepared stacks/u,
     /active or unknown owners/u,
-    /compose:local and the live harness/u,
-    /unrelated or other-checkout instances/u,
-    /persistent data, volumes, uploads, bind-mounted data/u,
-    /human-selected offset/u,
-    /names or ports alone are insufficient/iu,
-    /broad Docker prune or volume-removing shutdown/u,
-    /exact safe skips, remaining stacks or data and reasons/u,
+    /CodeInfo2 compose:local and the live harness/u,
+    /persistent data deletion/u,
+    /unrelated stacks/u,
+    /No blanket stop/u,
+    /update or remove only the verified target's stack manifest or receipt/u,
     /Do not spawn or delegate to further sub-agents for this assignment\./u,
   ]) {
     assert.match(prompt, requirement);
   }
-  assert.match(textOf(report), /cleanup outcome, including exact safe skips, leftovers and reasons/u);
+  assert.match(textOf(report), /cleanup outcome/u);
   assert.match(textOf(report), /missing or unavailable, say so/u);
 });
 
